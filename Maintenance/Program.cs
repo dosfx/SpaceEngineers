@@ -21,15 +21,55 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
+        private List<IMyDoor> watchDoors;
+        private List<IMyBatteryBlock> batteries;
+        private List<IMyFunctionalBlock> engines;
+
         public Program()
         {
-            //Runtime.UpdateFrequency = UpdateFrequency.Update100;
+            Runtime.UpdateFrequency = UpdateFrequency.Update100;
+
+            watchDoors = new List<IMyDoor>();
+            GridTerminalSystem.GetBlocksOfType(watchDoors, b =>
+                b.BlockDefinition.TypeIdString == "MyObjectBuilder_AirtightSlideDoor" ||
+                (b.BlockDefinition.TypeIdString == "MyObjectBuilder_Door" && (b.BlockDefinition.SubtypeId == "" || b.BlockDefinition.SubtypeId == "LargeBlockOffsetDoor")));
+
+            batteries = new List<IMyBatteryBlock>();
+            GridTerminalSystem.GetBlockGroupWithName("Batteries")?.GetBlocksOfType(batteries);
+
+            engines = new List<IMyFunctionalBlock>();
+            GridTerminalSystem.GetBlockGroupWithName("Engines")?.GetBlocksOfType(engines);
         }
 
         public void Save() { }
 
         public void Main(string argument, UpdateType updateSource)
         {
+            if (updateSource.HasFlag(UpdateType.Update100))
+            {
+                // battery watcher
+                float currentCharge = 0;
+                float maxCharge = 0;
+                foreach (IMyBatteryBlock battery in batteries)
+                {
+                    currentCharge += battery.CurrentStoredPower;
+                    maxCharge += battery.MaxStoredPower;
+                }
+                float charge = currentCharge / maxCharge;
+                foreach (IMyFunctionalBlock engine in engines)
+                {
+                    engine.Enabled = (engine.Enabled || charge < 0.5f) && charge < 0.8f;
+                }
+
+                // door watcher
+                foreach (IMyDoor door in watchDoors)
+                {
+                    if (door.Status != DoorStatus.Opening)
+                    {
+                        door.CloseDoor();
+                    }
+                }
+            }
         }
     }
 }
