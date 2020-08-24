@@ -21,14 +21,51 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
+        private readonly List<IMyTextSurface> surfaces;
+        private readonly List<IMyInventory> inventories;
+        private readonly MyFixedPoint maxVolume;
+
         public Program()
         {
+            surfaces = new List<IMyTextSurface>();
+            surfaces.Add(Me.GetSurface(0));
+            IMyTextSurfaceProvider block = GridTerminalSystem.GetBlockWithName("Miner - Cockpit") as IMyTextSurfaceProvider;
+            surfaces.Add(block.GetSurface(0));
+            surfaces.Add(GridTerminalSystem.GetBlockWithName("Miner - Butt LCD") as IMyTextSurface);
+
+            List<IMyTerminalBlock> inventoryBlocks = new List<IMyTerminalBlock>();
+            GridTerminalSystem.GetBlockGroupWithName("Miner - Storage")?.GetBlocksOfType(inventoryBlocks, b => b.HasInventory);
+            inventories = inventoryBlocks.SelectMany(b => Enumerable.Range(0, b.InventoryCount).Select(i => b.GetInventory(i))).ToList();
+
+            maxVolume = inventories.Aggregate(MyFixedPoint.Zero, (agg, inv) => MyFixedPoint.AddSafe(agg, inv.MaxVolume));
+            Runtime.UpdateFrequency = UpdateFrequency.Update100;
         }
 
         public void Save() { }
 
         public void Main(string argument, UpdateType updateSource)
         {
+            if (updateSource.HasFlag(UpdateType.Update100))
+            {
+                MyFixedPoint cur = inventories.Aggregate(MyFixedPoint.Zero, (agg, inv) => MyFixedPoint.AddSafe(agg, inv.CurrentVolume));
+                Echo($"{inventories.Count} inventories found with {MyFixedPoint.MultiplySafe(1000, cur)} / {MyFixedPoint.MultiplySafe(1000, maxVolume)} litres filled.");
+                float percent = (float)cur.RawValue / maxVolume.RawValue;
+                Color backColor = Color.Green;
+                if (percent > 0.8f)
+                {
+                    backColor = Color.Red;
+                }
+                else if (percent > 0.5f)
+                {
+                    backColor = Color.Yellow;
+                }
+
+                foreach (IMyTextSurface surface in surfaces)
+                {
+                    surface.BackgroundColor = backColor;
+                    surface.WriteText($"{percent * 100:00}%");
+                }
+            }
         }
     }
 }
