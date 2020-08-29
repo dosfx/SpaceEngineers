@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Maintenance", "Maintenance\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StorageStatus", "StorageStatus\StorageStatus.csproj", "{14CBC354-18DE-4ECA-BEF2-70C7090C5CD1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Hangar", "Hangar\Hangar.csproj", "{4005C24B-D45E-463C-9D0C-2865A79B5A47}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -16,6 +18,8 @@ Global
 		{8BCEC779-F3F3-4716-8BC2-EFE602C7BFBF}.Debug|x64.Build.0 = Debug|x64
 		{14CBC354-18DE-4ECA-BEF2-70C7090C5CD1}.Debug|x64.ActiveCfg = Debug|x64
 		{14CBC354-18DE-4ECA-BEF2-70C7090C5CD1}.Debug|x64.Build.0 = Debug|x64
+		{4005C24B-D45E-463C-9D0C-2865A79B5A47}.Debug|x64.ActiveCfg = Debug|x64
+		{4005C24B-D45E-463C-9D0C-2865A79B5A47}.Debug|x64.Build.0 = Debug|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
