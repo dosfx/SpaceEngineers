@@ -23,7 +23,7 @@ namespace IngameScript
     {
         private List<IMyDoor> watchDoors;
         private List<IMyBatteryBlock> batteries;
-        private List<IMyFunctionalBlock> engines;
+        private List<IMyFunctionalBlock> generators;
 
         public Program()
         {
@@ -37,8 +37,8 @@ namespace IngameScript
             batteries = new List<IMyBatteryBlock>();
             GridTerminalSystem.GetBlockGroupWithName("Batteries")?.GetBlocksOfType(batteries);
 
-            engines = new List<IMyFunctionalBlock>();
-            GridTerminalSystem.GetBlockGroupWithName("Engines")?.GetBlocksOfType(engines);
+            generators = new List<IMyFunctionalBlock>();
+            GridTerminalSystem.GetBlockGroupWithName("Generators")?.GetBlocksOfType(generators);
         }
 
         public void Save() { }
@@ -56,7 +56,7 @@ namespace IngameScript
                     maxCharge += battery.MaxStoredPower;
                 }
                 float charge = currentCharge / maxCharge;
-                foreach (IMyFunctionalBlock engine in engines)
+                foreach (IMyFunctionalBlock engine in generators)
                 {
                     engine.Enabled = (engine.Enabled || charge < 0.5f) && charge < 0.8f;
                 }
