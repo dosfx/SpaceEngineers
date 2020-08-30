@@ -31,6 +31,7 @@ namespace IngameScript
         private readonly List<IMyAirVent> vents;
 
         private bool requestOpenHangarDoors;
+        private bool requestToggleAirlock;
 
         public Program()
         {
@@ -55,6 +56,9 @@ namespace IngameScript
                 updateSource.HasFlag(UpdateType.Trigger) ||
                 updateSource.HasFlag(UpdateType.IGC))
             {
+                // clear memory
+                requestOpenHangarDoors = false;
+                requestToggleAirlock = false;
                 switch (argument)
                 {
                     case "ToggleDoors":
@@ -78,7 +82,7 @@ namespace IngameScript
                         }
                         break;
                     case "ToggleAirlock":
-                        airlockVent.Depressurize = !airlockVent.Depressurize;
+                        ToggleAirlock();
                         break;
                 }
             }
@@ -114,6 +118,11 @@ namespace IngameScript
                 if (requestOpenHangarDoors)
                 {
                     OpenHangarDoors();
+                }
+
+                if (requestToggleAirlock)
+                {
+                    ToggleAirlock();
                 }
             }
         }
@@ -169,6 +178,27 @@ namespace IngameScript
             foreach (IMyAirVent vent in vents)
             {
                 vent.Depressurize = true;
+            }
+        }
+
+        private void ToggleAirlock()
+        {
+            // make sure both doors are closed before changing pressure
+            if (airlockInnerDoor.Status == DoorStatus.Closed &&
+                airlockOuterDoor.Status == DoorStatus.Closed)
+            {
+                // one frame of both doors locked to prevent mistakes
+                airlockInnerDoor.Enabled = false;
+                airlockOuterDoor.Enabled = false;
+                airlockVent.Depressurize = !airlockVent.Depressurize;
+                requestToggleAirlock = false;
+            }
+            else
+            {
+                // close the doors and wait
+                airlockInnerDoor.CloseDoor();
+                airlockOuterDoor.CloseDoor();
+                requestToggleAirlock = true;
             }
         }
 
