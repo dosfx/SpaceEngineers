@@ -24,6 +24,7 @@ namespace IngameScript
     {
         private readonly IMyDoor airlockOuterDoor;
         private readonly IMyGasTank oxygenTank;
+        private readonly IMyShipConnector connector;
         private readonly List<IMyAirtightHangarDoor> hangarDoors;
         private readonly List<IMyAirVent> vents;
 
@@ -35,6 +36,7 @@ namespace IngameScript
 
             airlockOuterDoor = GridTerminalSystem.GetBlockWithName("Hangar Airlock Outer Door") as IMyDoor;
             oxygenTank = GridTerminalSystem.GetBlockWithName("Hangar Oxygen Tank") as IMyGasTank;
+            connector = GridTerminalSystem.GetBlockWithName("Hangar Connector") as IMyShipConnector;
             hangarDoors = new List<IMyAirtightHangarDoor>();
             GridTerminalSystem.GetBlockGroupWithName("Hangar Doors")?.GetBlocksOfType(hangarDoors);
             vents = new List<IMyAirVent>();
@@ -87,6 +89,19 @@ namespace IngameScript
                 {
                     door.Enabled = CanHangarDoorsOpen;
                 }
+
+                // refill Hangar Oxygen tank                 
+                if (oxygenTank.FilledRatio < 0.4 - (0.3 * oxLevel))
+                {
+                    oxygenTank.Stockpile = true;
+                    connector.Connect();
+                }
+                else
+                {
+                    oxygenTank.Stockpile = false;
+                    connector.Disconnect();
+                }
+
 
                 // resume an action
                 if (requestOpenHangarDoors)
