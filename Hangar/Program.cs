@@ -23,6 +23,8 @@ namespace IngameScript
     partial class Program : MyGridProgram
     {
         private readonly IMyDoor airlockOuterDoor;
+        private readonly IMyDoor airlockInnerDoor;
+        private readonly IMyAirVent airlockVent;
         private readonly IMyGasTank oxygenTank;
         private readonly IMyShipConnector connector;
         private readonly List<IMyAirtightHangarDoor> hangarDoors;
@@ -35,6 +37,8 @@ namespace IngameScript
             Runtime.UpdateFrequency = UpdateFrequency.Update100;
 
             airlockOuterDoor = GridTerminalSystem.GetBlockWithName("Hangar Airlock Outer Door") as IMyDoor;
+            airlockInnerDoor = GridTerminalSystem.GetBlockWithName("Hangar Airlock Inner Door") as IMyDoor;
+            airlockVent = GridTerminalSystem.GetBlockWithName("Hangar Airlock Vent") as IMyAirVent;
             oxygenTank = GridTerminalSystem.GetBlockWithName("Hangar Oxygen Tank") as IMyGasTank;
             connector = GridTerminalSystem.GetBlockWithName("Hangar Connector") as IMyShipConnector;
             hangarDoors = new List<IMyAirtightHangarDoor>();
@@ -74,6 +78,7 @@ namespace IngameScript
                         }
                         break;
                     case "ToggleAirlock":
+                        airlockVent.Depressurize = !airlockVent.Depressurize;
                         break;
                 }
             }
@@ -81,17 +86,19 @@ namespace IngameScript
             if (updateSource.HasFlag(UpdateType.Update100))
             {
                 // oxLevel as percent 0.0 to 1.0 
-                float oxLevel = vents[0].GetOxygenLevel();
+                float hangarOxLevel = vents[0].GetOxygenLevel();
+                float airlockOxLevel = airlockVent.GetOxygenLevel();
 
                 // lock/unlock doors based on safety
-                airlockOuterDoor.Enabled = oxLevel >= 0.9f;
+                airlockOuterDoor.Enabled = Math.Abs(hangarOxLevel - airlockOxLevel) < 0.1f;
+                airlockInnerDoor.Enabled = airlockOxLevel >= 0.9f;
                 foreach (IMyAirtightHangarDoor door in hangarDoors)
                 {
                     door.Enabled = CanHangarDoorsOpen;
                 }
 
                 // refill Hangar Oxygen tank                 
-                if (oxygenTank.FilledRatio < 0.4 - (0.3 * oxLevel))
+                if (oxygenTank.FilledRatio < 0.4 - (0.3 * hangarOxLevel))
                 {
                     oxygenTank.Stockpile = true;
                     connector.Connect();
