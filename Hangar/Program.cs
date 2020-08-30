@@ -28,7 +28,6 @@ namespace IngameScript
         private readonly List<IMyAirVent> vents;
 
         private bool requestOpenHangarDoors;
-        private bool requestFillHangar;
 
         public Program()
         {
@@ -53,8 +52,7 @@ namespace IngameScript
                 switch (argument)
                 {
                     case "ToggleDoors":
-                        if (hangarDoors[0].Status == DoorStatus.Closed ||
-                            hangarDoors[0].Status == DoorStatus.Closing)
+                        if (HangarDoorsClosedOrClosing)
                         {
                             OpenHangarDoors();
                         }
@@ -82,121 +80,91 @@ namespace IngameScript
             {
                 // oxLevel as percent 0.0 to 1.0 
                 float oxLevel = vents[0].GetOxygenLevel();
+
+                // lock/unlock doors based on safety
                 airlockOuterDoor.Enabled = oxLevel >= 0.9f;
-                HangarDoorsEnabled = CanHangarDoorsOpen;
+                foreach (IMyAirtightHangarDoor door in hangarDoors)
+                {
+                    door.Enabled = CanHangarDoorsOpen;
+                }
 
-                Echo($"CanHangarDoorsOpen: {CanHangarDoorsOpen}");
-                Echo($"requestOpenHangarDoors: {requestOpenHangarDoors}");
-                Echo($"requestFillHangar: {requestFillHangar}");
-
+                // resume an action
                 if (requestOpenHangarDoors)
                 {
                     OpenHangarDoors();
-                }
-
-                if (requestFillHangar)
-                {
-                    FillHangar();
                 }
             }
         }
 
         private void OpenHangarDoors()
         {
-            // in case we can't
-            requestOpenHangarDoors = true;
-
             // check conditions
             if (CanHangarDoorsOpen)
             {
                 // safe, clear the request
                 requestOpenHangarDoors = false;
+
                 // take action
-                HangarDoorsClosed = false;
+                foreach (IMyAirtightHangarDoor door in hangarDoors)
+                {
+                    door.OpenDoor();
+                }
             }
             else
             {
                 // take action to make safe
                 DrainHangar();
+
+                // remember what we were trying to do
+                requestOpenHangarDoors = true;
             }
         }
 
         private void CloseHangarDoors()
         {
             // no conditions, just do it
-            // take action
-            HangarDoorsClosed = true;
+            foreach (IMyAirtightHangarDoor door in hangarDoors)
+            {
+                door.CloseDoor();
+            }
         }
 
         private void FillHangar()
         {
-            // in case we can't
-            requestFillHangar = true;
+            // Close the doors too to hold in the pressure
+            CloseHangarDoors();
 
-            // check conditions
-            if (HangarDoorsClosed)
+            // take action
+            foreach (IMyAirVent vent in vents)
             {
-                // safe, clear the request
-                requestFillHangar = false;
-                // take action
-                HangarDepressurize = false;
-            }
-            else
-            {
-                // take action to make safe
-                CloseHangarDoors();
+                vent.Depressurize = false;
             }
         }
 
         private void DrainHangar()
         {
             // no conditions
-            // take action
-            HangarDepressurize = true;
+            foreach (IMyAirVent vent in vents)
+            {
+                vent.Depressurize = true;
+            }
         }
 
         private bool CanHangarDoorsOpen
         {
             get
             {
-                return vents[0].GetOxygenLevel() == 0.0f || oxygenTank.FilledRatio == 1.0; // in case the tank is full and the hangar can't drain any more
+                // in case the tank is full and the hangar can't drain any more
+                return vents[0].GetOxygenLevel() == 0.0f || oxygenTank.FilledRatio == 1.0;
             }
         }
 
-        private bool HangarDoorsClosed
+        private bool HangarDoorsClosedOrClosing
         {
             get
             {
-                return hangarDoors.All(d => d.Status == DoorStatus.Closed);
-            }
-            set
-            {
-                foreach (IMyAirtightHangarDoor door in hangarDoors)
-                {
-                    if (value)
-                    {
-                        door.CloseDoor();
-                    }
-                    else
-                    {
-                        door.OpenDoor();
-                    }
-                }
-            }
-        }
-
-        private bool HangarDoorsEnabled
-        {
-            get
-            {
-                return hangarDoors[0].Enabled;
-            }
-            set
-            {
-                foreach (IMyAirtightHangarDoor door in hangarDoors)
-                {
-                    door.Enabled = value;
-                }
+                // just use the first to infer all of them
+                return hangarDoors[0].Status == DoorStatus.Closed || hangarDoors[0].Status == DoorStatus.Closing;
             }
         }
 
@@ -204,14 +172,8 @@ namespace IngameScript
         {
             get
             {
+                // just use the first to infer all of them
                 return vents[0].Depressurize;
-            }
-            set
-            {
-                foreach (IMyAirVent vent in vents)
-                {
-                    vent.Depressurize = value;
-                }
             }
         }
     }
