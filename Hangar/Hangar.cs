@@ -20,7 +20,7 @@ using System.Runtime.CompilerServices;
 
 namespace IngameScript
 {
-    partial class Program : MyGridProgram
+    partial class Hangar : MyGridProgram
     {
         private readonly IMyDoor airlockOuterDoor;
         private readonly IMyDoor airlockInnerDoor;
@@ -33,7 +33,7 @@ namespace IngameScript
         private bool requestOpenHangarDoors;
         private bool requestToggleAirlock;
 
-        public Program()
+        public Hangar()
         {
             Runtime.UpdateFrequency = UpdateFrequency.Update100;
 
