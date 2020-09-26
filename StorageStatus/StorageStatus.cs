@@ -19,13 +19,13 @@ using VRageMath;
 
 namespace IngameScript
 {
-    partial class StorageStatus : MyGridProgram
+    partial class Program : MyGridProgram
     {
         private readonly List<IMyTextSurface> surfaces;
         private readonly List<IMyInventory> inventories;
         private readonly MyFixedPoint maxVolume;
 
-        public StorageStatus()
+        public Program()
         {
             surfaces = new List<IMyTextSurface>();
             surfaces.Add(Me.GetSurface(0));

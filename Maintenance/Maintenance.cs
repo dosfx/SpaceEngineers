@@ -19,13 +19,13 @@ using VRageMath;
 
 namespace IngameScript
 {
-    partial class Maintenance : MyGridProgram
+    partial class Program : MyGridProgram
     {
         private List<IMyDoor> watchDoors;
         private List<IMyBatteryBlock> batteries;
         private List<IMyFunctionalBlock> generators;
 
-        public Maintenance()
+        public Program()
         {
             Runtime.UpdateFrequency = UpdateFrequency.Update100;
 
