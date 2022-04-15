@@ -101,20 +101,11 @@ namespace IngameScript
                 }
             }
 
-            public void Update()
+            public bool Tick()
             {
                 SetEnabled(InnerDoors, IsPressurized);
                 SetEnabled(OuterDoors, IsNotPressurized);
 
-                if (countdown > 0)
-                {
-                    countdown--;
-                    if (countdown <= 0)
-                    {
-                        CloseDoor(countdownDoors);
-                    }
-                }
-                
                 switch (Status)
                 {
                     case AirlockStatus.Draining:
@@ -155,6 +146,21 @@ namespace IngameScript
                 foreach (IMyTextSurface surface in DisplaySurfaces)
                 {
                     surface.WriteText(Status.ToString());
+                }
+
+                return Status == AirlockStatus.Draining || Status == AirlockStatus.Filling;
+            }
+
+            public void Update()
+            {
+
+                if (countdown > 0)
+                {
+                    countdown--;
+                    if (countdown <= 0)
+                    {
+                        CloseDoor(countdownDoors);
+                    }
                 }
             }
 

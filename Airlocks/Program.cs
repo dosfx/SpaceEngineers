@@ -26,30 +26,49 @@ namespace IngameScript
         private Dictionary<string, Bulkhead> bulkheads;
         private IEnumerator<bool> startup;
         private readonly MyCommandLine commandLine;
+        private readonly HashSet<string> ticking;
 
         public Program()
         {
             startup = Startup();
             commandLine = new MyCommandLine();
+            ticking = new HashSet<string>();
             Runtime.UpdateFrequency = UpdateFrequency.Once;
         }
 
         public void Main(string argument, UpdateType updateSource)
         {
-            if (updateSource.HasFlag(UpdateType.Once) && startup != null)
+            if (updateSource.HasFlag(UpdateType.Once))
             {
-                if (startup.MoveNext())
+                if (startup != null)
                 {
-                    Runtime.UpdateFrequency = UpdateFrequency.Once;
+                    if (startup.MoveNext())
+                    {
+                        Runtime.UpdateFrequency = UpdateFrequency.Once;
+                    }
+                    else
+                    {
+                        Runtime.UpdateFrequency = UpdateFrequency.Update100;
+                        startup.Dispose();
+                        startup = null;
+                    }
+
+                    return;
                 }
                 else
                 {
-                    Runtime.UpdateFrequency = UpdateFrequency.Update100;
-                    startup.Dispose();
-                    startup = null;
+                    foreach (string id in ticking.ToArray())
+                    {
+                        if (!airlocks[id].Tick())
+                        {
+                            ticking.Remove(id);
+                        }
+                    }
+                    if (ticking.Count > 0)
+                    {
+                        Runtime.UpdateFrequency |= UpdateFrequency.Once;
+                    }
                 }
-
-                return;
             }
 
             if ((updateSource.HasFlag(UpdateType.Terminal) || updateSource.HasFlag(UpdateType.Trigger))
@@ -72,12 +91,18 @@ namespace IngameScript
                         {
                             case "OpenInner":
                                 airlock.RequestOpenInner();
+                                ticking.Add(airlock.Id);
+                                Runtime.UpdateFrequency |= UpdateFrequency.Once;
                                 break;
                             case "OpenOuter":
                                 airlock.RequestOpenOuter();
+                                ticking.Add(airlock.Id);
+                                Runtime.UpdateFrequency |= UpdateFrequency.Once;
                                 break;
                             case "Toggle":
                                 airlock.Toggle();
+                                ticking.Add(airlock.Id);
+                                Runtime.UpdateFrequency |= UpdateFrequency.Once;
                                 break;
                         }
                     }
