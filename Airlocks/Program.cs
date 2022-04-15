@@ -38,37 +38,20 @@ namespace IngameScript
 
         public void Main(string argument, UpdateType updateSource)
         {
-            if (updateSource.HasFlag(UpdateType.Once))
+            if (updateSource.HasFlag(UpdateType.Once) && startup != null)
             {
-                if (startup != null)
+                if (startup.MoveNext())
                 {
-                    if (startup.MoveNext())
-                    {
-                        Runtime.UpdateFrequency = UpdateFrequency.Once;
-                    }
-                    else
-                    {
-                        Runtime.UpdateFrequency = UpdateFrequency.Update100;
-                        startup.Dispose();
-                        startup = null;
-                    }
-
-                    return;
+                    Runtime.UpdateFrequency = UpdateFrequency.Once;
                 }
                 else
                 {
-                    foreach (string id in ticking.ToArray())
-                    {
-                        if (!airlocks[id].Tick())
-                        {
-                            ticking.Remove(id);
-                        }
-                    }
-                    if (ticking.Count > 0)
-                    {
-                        Runtime.UpdateFrequency |= UpdateFrequency.Once;
-                    }
+                    Runtime.UpdateFrequency = UpdateFrequency.Update100;
+                    startup.Dispose();
+                    startup = null;
                 }
+
+                return;
             }
 
             if ((updateSource.HasFlag(UpdateType.Terminal) || updateSource.HasFlag(UpdateType.Trigger))
@@ -92,20 +75,40 @@ namespace IngameScript
                             case "OpenInner":
                                 airlock.RequestOpenInner();
                                 ticking.Add(airlock.Id);
-                                Runtime.UpdateFrequency |= UpdateFrequency.Once;
+                                Runtime.UpdateFrequency |= UpdateFrequency.Update10;
                                 break;
                             case "OpenOuter":
                                 airlock.RequestOpenOuter();
                                 ticking.Add(airlock.Id);
-                                Runtime.UpdateFrequency |= UpdateFrequency.Once;
+                                Runtime.UpdateFrequency |= UpdateFrequency.Update10;
                                 break;
                             case "Toggle":
                                 airlock.Toggle();
                                 ticking.Add(airlock.Id);
-                                Runtime.UpdateFrequency |= UpdateFrequency.Once;
+                                Runtime.UpdateFrequency |= UpdateFrequency.Update10;
                                 break;
                         }
                     }
+                }
+            }
+
+            if (updateSource.HasFlag(UpdateType.Update10))
+            {
+                foreach (string id in ticking.ToArray())
+                {
+                    if (!airlocks[id].Tick())
+                    {
+                        ticking.Remove(id);
+                    }
+                }
+
+                if (ticking.Count > 0)
+                {
+                    Runtime.UpdateFrequency |= UpdateFrequency.Update10;
+                }
+                else
+                {
+                    Runtime.UpdateFrequency &= ~UpdateFrequency.Update10;
                 }
             }
 
