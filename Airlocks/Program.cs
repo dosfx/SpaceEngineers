@@ -22,42 +22,59 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
-        private readonly List<Airlock> airlocks;
+        private Dictionary<string, Airlock> airlocks;
+        private IEnumerator<bool> startup;
+        private readonly MyCommandLine commandLine;
 
         public Program()
         {
-            Runtime.UpdateFrequency = UpdateFrequency.Update100;
-            airlocks = new List<Airlock>
-            {
-                new Airlock()
-                {
-                    InnerDoors = new IMyDoor[] { GridTerminalSystem.GetBlockWithName("Inner Door") as IMyDoor },
-                    OuterDoors = new IMyDoor[] { GridTerminalSystem.GetBlockWithName("Outer Door") as IMyDoor },
-                    Vents = new IMyAirVent[] { GridTerminalSystem.GetBlockWithName("Vent") as IMyAirVent }
-                }
-            };
-
-            airlocks[0].Init();
+            startup = Startup();
+            commandLine = new MyCommandLine();
+            Runtime.UpdateFrequency = UpdateFrequency.Once;
         }
 
         public void Main(string argument, UpdateType updateSource)
         {
-            if (argument == "open_inner")
+            if (updateSource.HasFlag(UpdateType.Once) && startup != null)
             {
-                airlocks[0].RequestOpenInner();
+                if (startup.MoveNext())
+                {
+                    Runtime.UpdateFrequency = UpdateFrequency.Once;
+                }
+                else
+                {
+                    Runtime.UpdateFrequency = UpdateFrequency.Update100;
+                    startup.Dispose();
+                    startup = null;
+                }
+
+                return;
             }
-            else if (argument == "open_outer")
+
+            if ((updateSource.HasFlag(UpdateType.Terminal) || updateSource.HasFlag(UpdateType.Trigger))
+                && startup == null && commandLine.TryParse(argument))
             {
-                airlocks[0].RequestOpenOuter();
-            }
-            else if (argument == "toggle")
-            {
-                airlocks[0].Toggle();
+                Airlock airlock;
+                if (airlocks.TryGetValue(commandLine.Argument(1), out airlock))
+                {
+                    switch (commandLine.Argument(0))
+                    {
+                        case "open_inner":
+                            airlock.RequestOpenInner();
+                            break;
+                        case "open_outer":
+                            airlock.RequestOpenOuter();
+                            break;
+                        case "toggle":
+                            airlock.Toggle();
+                            break;
+                    }
+                }
             }
 
             if (updateSource.HasFlag(UpdateType.Update100))
             {
-                foreach (Airlock airlock in airlocks)
+                foreach (Airlock airlock in airlocks.Values)
                 {
                     airlock.Update();
                 }

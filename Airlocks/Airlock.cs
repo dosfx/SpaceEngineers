@@ -34,12 +34,14 @@ namespace IngameScript
         {
             private const int DoorCountdown = 10;
             private int countdown;
-            private IMyDoor[] countdownDoors;
+            private List<IMyDoor> countdownDoors;
 
-            public IMyDoor[] InnerDoors { get; set; }
-            public IMyDoor[] OuterDoors { get; set; }
-            public IMyAirVent[] Vents { get; set; }
+            public string Id { get; set; }
+            public List<IMyDoor> InnerDoors { get; } = new List<IMyDoor>();
+            public List<IMyDoor> OuterDoors { get; } = new List<IMyDoor>();
+            public List<IMyAirVent> Vents { get; } = new List<IMyAirVent>();
             public AirlockStatus Status { get; private set; }
+            public bool Valid => InnerDoors.Count > 0 && OuterDoors.Count > 0 && Vents.Count > 0;
 
             private bool IsNotPressurized => Vents.First().GetOxygenLevel() < 0.1f;
             private bool IsPressurized => Vents.First().GetOxygenLevel() > 0.9f;
@@ -149,12 +151,12 @@ namespace IngameScript
                 }
             }
 
-            private bool Closed(IMyDoor[] doors)
+            private bool Closed(List<IMyDoor> doors)
             {
                 return doors.All(d => d.Status == DoorStatus.Closed);
             }
 
-            private void CloseDoor(IMyDoor[] doors)
+            private void CloseDoor(List<IMyDoor> doors)
             {
                 if (countdownDoors == doors)
                 {
@@ -168,7 +170,7 @@ namespace IngameScript
                 }
             }
 
-            private void OpenDoor(IMyDoor[] doors)
+            private void OpenDoor(List<IMyDoor> doors)
             {
                 countdown = DoorCountdown;
                 countdownDoors = doors;
@@ -187,9 +189,9 @@ namespace IngameScript
                 }
             }
 
-            private void SetEnabled(IMyFunctionalBlock[] blocks, bool enabled)
+            private void SetEnabled<T>(List<T> blocks, bool enabled) where T: IMyFunctionalBlock
             {
-                foreach (IMyFunctionalBlock block in blocks)
+                foreach (T block in blocks)
                 {
                     block.Enabled = enabled;
                 }
