@@ -24,11 +24,8 @@ namespace IngameScript
     {
         public IEnumerator<bool> Startup()
         {
-            // callback to check blocks for custom data
-            Func<IMyTerminalBlock, bool> hasCustomData = b => !string.IsNullOrEmpty(b.CustomData);
-
             List<IMyTerminalBlock> blocks = new List<IMyTerminalBlock>();
-            GridTerminalSystem.GetBlocksOfType(blocks, hasCustomData);
+            GridTerminalSystem.GetBlocksOfType(blocks, b => !string.IsNullOrEmpty(b.CustomData) && b.IsSameConstructAs(Me));
             Echo("Scanning...");
             yield return true;
 
