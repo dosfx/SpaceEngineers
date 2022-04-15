@@ -38,45 +38,89 @@ namespace IngameScript
             int progress = 0;
             MyIni ini = new MyIni();
             airlocks = new Dictionary<string, Airlock>();
-
+            bulkheads = new Dictionary<string, Bulkhead>();
             foreach (IMyTerminalBlock block in blocks)
             {
                 // every block we care about should at least have Airlock > Id
                 string id;
-                if (ini.TryParse(block.CustomData) && ini.ContainsSection("Airlock") && ini.Get("Airlock", "Id").TryGetString(out id))
+                string type;
+                if (ini.TryParse(block.CustomData))
                 {
-                    // get or create Airlock obj
-                    Airlock airlock;
-                    if (!airlocks.TryGetValue(id, out airlock))
+                    if (ini.ContainsSection("Airlock") && ini.Get("Airlock", "Id").TryGetString(out id))
                     {
-                        airlock = new Airlock() { Id = id };
-                        airlocks.Add(id, airlock);
+                        // get or create Airlock obj
+                        Airlock airlock;
+                        if (!airlocks.TryGetValue(id, out airlock))
+                        {
+                            airlock = new Airlock() { Id = id };
+                            airlocks.Add(id, airlock);
+                        }
+
+                        // is it a door?
+                        IMyDoor door = block as IMyDoor;
+                        if (door != null && ini.Get("Airlock", "Type").TryGetString(out type))
+                        {
+                            if (type == "Inner")
+                            {
+                                airlock.InnerDoors.Add(door);
+                            }
+                            else if (type == "Outer")
+                            {
+                                airlock.OuterDoors.Add(door);
+                            }
+                            else
+                            {
+                                // error?
+                            }
+                        }
+
+                        // is it a vent?
+                        IMyAirVent vent = block as IMyAirVent;
+                        if (vent != null)
+                        {
+                            airlock.Vents.Add(vent);
+                        }
+
+                        IMyTextSurfaceProvider provider = block as IMyTextSurfaceProvider;
+                        if (provider != null)
+                        {
+                            List<MyIniKey> keys = new List<MyIniKey>();
+                            ini.GetKeys("Airlock", keys);
+                            foreach (MyIniKey key in keys)
+                            {
+                                int surfaceIndex;
+                                if (key.Name.StartsWith("Surface") && int.TryParse(key.Name.Substring("Surface".Length), out surfaceIndex) &&
+                                    surfaceIndex < provider.SurfaceCount && ini.Get(key).TryGetString(out type))
+                                {
+                                    if (type == "Display")
+                                    {
+                                        airlock.DisplaySurfaces.Add(provider.GetSurface(surfaceIndex));
+                                    }
+                                }
+                            }
+                        }
                     }
 
-                    // is it a door?
-                    string type;
-                    IMyDoor door = block as IMyDoor;
-                    if (door != null && ini.Get("Airlock", "Type").TryGetString(out type))
+                    if (ini.ContainsSection("Bulkhead") && ini.Get("Bulkhead", "Id").TryGetString(out id))
                     {
-                        if (type == "Inner")
+                        Bulkhead bulkhead;
+                        if (!bulkheads.TryGetValue(id, out bulkhead))
                         {
-                            airlock.InnerDoors.Add(door);
+                            bulkhead = new Bulkhead() { Id = id };
+                            bulkheads.Add(id, bulkhead);
                         }
-                        else if (type == "Outer")
-                        {
-                            airlock.OuterDoors.Add(door);
-                        }
-                        else
-                        {
-                            // error?
-                        }
-                    }
 
-                    // is it a vent?
-                    IMyAirVent vent = block as IMyAirVent;
-                    if (vent != null)
-                    {
-                        airlock.Vents.Add(vent);
+                        IMyDoor door = block as IMyDoor;
+                        if (door != null)
+                        {
+                            bulkhead.Doors.Add(door);
+                        }
+
+                        IMyAirVent vent = block as IMyAirVent;
+                        if (vent != null)
+                        {
+                            bulkhead.Vents.Add(vent);
+                        }
                     }
                 }
 
@@ -99,8 +143,20 @@ namespace IngameScript
                     Echo($"{id} Invalid");
                     airlocks.Remove(id);
                 }
+            }
 
-                yield return true;
+            // go through and init the real ones and remove the bad ones
+            foreach (string id in bulkheads.Keys.ToArray())
+            {
+                if (bulkheads[id].Valid)
+                {
+                    Echo($"{id} Valid");
+                }
+                else
+                {
+                    Echo($"{id} Invalid");
+                    bulkheads.Remove(id);
+                }
             }
 
             // done

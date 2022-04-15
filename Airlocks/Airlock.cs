@@ -40,8 +40,10 @@ namespace IngameScript
             public List<IMyDoor> InnerDoors { get; } = new List<IMyDoor>();
             public List<IMyDoor> OuterDoors { get; } = new List<IMyDoor>();
             public List<IMyAirVent> Vents { get; } = new List<IMyAirVent>();
+            public List<IMyTextSurface> DisplaySurfaces { get; } = new List<IMyTextSurface>();
             public AirlockStatus Status { get; private set; }
             public bool Valid => InnerDoors.Count > 0 && OuterDoors.Count > 0 && Vents.Count > 0;
+
 
             private bool IsNotPressurized => Vents.First().GetOxygenLevel() < 0.1f;
             private bool IsPressurized => Vents.First().GetOxygenLevel() > 0.9f;
@@ -148,6 +150,11 @@ namespace IngameScript
                             }
                         }
                         break;
+                }
+
+                foreach (IMyTextSurface surface in DisplaySurfaces)
+                {
+                    surface.WriteText(Status.ToString());
                 }
             }
 

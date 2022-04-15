@@ -23,6 +23,7 @@ namespace IngameScript
     partial class Program : MyGridProgram
     {
         private Dictionary<string, Airlock> airlocks;
+        private Dictionary<string, Bulkhead> bulkheads;
         private IEnumerator<bool> startup;
         private readonly MyCommandLine commandLine;
 
@@ -52,22 +53,33 @@ namespace IngameScript
             }
 
             if ((updateSource.HasFlag(UpdateType.Terminal) || updateSource.HasFlag(UpdateType.Trigger))
-                && startup == null && commandLine.TryParse(argument))
+                && startup == null && commandLine.TryParse(argument) && commandLine.ArgumentCount >= 2)
             {
-                Airlock airlock;
-                if (airlocks.TryGetValue(commandLine.Argument(1), out airlock))
+                if (commandLine.Argument(0) == "OpenBulkhead")
                 {
-                    switch (commandLine.Argument(0))
+                    Bulkhead bulkhead;
+                    if (bulkheads.TryGetValue(commandLine.Argument(1), out bulkhead))
                     {
-                        case "open_inner":
-                            airlock.RequestOpenInner();
-                            break;
-                        case "open_outer":
-                            airlock.RequestOpenOuter();
-                            break;
-                        case "toggle":
-                            airlock.Toggle();
-                            break;
+                        bulkhead.RequestOpenDoors();
+                    }
+                }
+                else
+                {
+                    Airlock airlock;
+                    if (airlocks.TryGetValue(commandLine.Argument(1), out airlock))
+                    {
+                        switch (commandLine.Argument(0))
+                        {
+                            case "OpenInner":
+                                airlock.RequestOpenInner();
+                                break;
+                            case "OpenOuter":
+                                airlock.RequestOpenOuter();
+                                break;
+                            case "Toggle":
+                                airlock.Toggle();
+                                break;
+                        }
                     }
                 }
             }
@@ -77,6 +89,11 @@ namespace IngameScript
                 foreach (Airlock airlock in airlocks.Values)
                 {
                     airlock.Update();
+                }
+
+                foreach (Bulkhead bulkhead in bulkheads.Values)
+                {
+                    bulkhead.Update();
                 }
             }
         }
