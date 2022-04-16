@@ -62,7 +62,7 @@ namespace IngameScript
                             {
                                 airlock.OuterDoors.Add(door);
                             }
-                            else if (type == "Balance")
+                            else if (type == "Barrier")
                             {
                                 airlock.BarrierDoors.Add(door);
                             }
