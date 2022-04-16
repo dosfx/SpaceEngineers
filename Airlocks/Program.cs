@@ -61,5 +61,18 @@ namespace IngameScript
 
             Coroutine.Update(updateSource);
         }
+
+        private IEnumerator<bool> AirlockStatus()
+        {
+            while (true)
+            {
+                foreach (Airlock airlock in airlocks.Values)
+                {
+                    Echo(airlock.StatusString());
+                }
+
+                yield return true;
+            }
+        }
     }
 }

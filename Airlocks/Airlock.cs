@@ -40,6 +40,31 @@ namespace IngameScript
 
             private bool IsEmpty => Vents.First().GetOxygenLevel() < 0.1f;
             private bool IsFilled => Vents.First().GetOxygenLevel() > 0.9f;
+            private string AirlockStatus
+            {
+                get
+                {
+                    if (IsEmpty) return "Depressurized";
+                    if (IsFilled) return "Pressurized";
+                    return Vents.First().Depressurize ? "Depressurizing" : "Pressurizing"; 
+                }
+            }
+            private bool BarrierSafe
+            {
+                get
+                {
+                    float min = 1.0f;
+                    float max = 0.0f;
+                    foreach (IMyAirVent vent in Vents)
+                    {
+                        float level = vent.GetOxygenLevel();
+                        min = Math.Min(min, level);
+                        max = Math.Max(max, level);
+                    }
+
+                    return max - min < 0.1f;
+                }
+            }
 
             public void Init()
             {
@@ -47,20 +72,18 @@ namespace IngameScript
                 Coroutine.Start(DoorWatcher(), UpdateFrequency.Update100);
             }
 
+            public string StatusString()
+            {
+                if (BarrierDoors.Count > 0)
+                {
+                    return $"Barrier {Id}: {(BarrierSafe ? "Safe" : "Unsafe")}";
+                }
+                return $"Airlock {Id}: {AirlockStatus}";
+            }
+
             public void RequestOpenBarrer()
             {
-                if (BarrierDoors.Count == 0) return;
-
-                float min = 1.0f;
-                float max = 0.0f;
-                foreach (IMyAirVent vent in Vents)
-                {
-                    float level = vent.GetOxygenLevel();
-                    min = Math.Min(min, level);
-                    max = Math.Max(max, level);
-                }
-
-                if (max - min < 0.1f)
+                if (BarrierSafe)
                 {
                     foreach (IMyDoor door in BarrierDoors)
                     {
@@ -137,10 +160,10 @@ namespace IngameScript
 
             private IEnumerator<bool> DoorCoroutine(IEnumerable<IMyDoor> doorsToOpen, bool depressurize, Func<bool> completed)
             {
-
                 // close the doors and set to pressurize
                 CloseDoors(InnerDoors);
                 CloseDoors(OuterDoors);
+                UpdateDisplay(depressurize ? "Depressurizing" : "Pressurizing");
 
                 // wait until the doors are all closed
                 while (!Closed(InnerDoors) || !Closed(OuterDoors))
@@ -153,7 +176,6 @@ namespace IngameScript
 
                 // change pressure
                 SetDepressurize(depressurize);
-                UpdateDisplay(depressurize ? "Depressurizing" : "Pressurizing");
 
                 // clear the watch countdowns
                 innerCountdown = outerCountdown = 0;
@@ -168,14 +190,7 @@ namespace IngameScript
                     yield return true;
                 }
 
-                if (IsFilled)
-                {
-                    UpdateDisplay("Pressurized");
-                }
-                else if (IsEmpty)
-                {
-                    UpdateDisplay("Depressurized");
-                }
+                UpdateDisplay();
 
                 // open the requested doors
                 OpenDoors(doorsToOpen);
@@ -207,6 +222,11 @@ namespace IngameScript
                 {
                     doorCountdown = DoorCountdown;
                 }
+            }
+
+            private void UpdateDisplay()
+            {
+                UpdateDisplay(AirlockStatus);
             }
 
             private void UpdateDisplay(string status)

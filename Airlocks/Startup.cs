@@ -121,6 +121,9 @@ namespace IngameScript
                 }
             }
 
+            // start the status update loop
+            Coroutine.Start(AirlockStatus(), UpdateFrequency.Update100);
+
             // done
             yield return false;
         }
