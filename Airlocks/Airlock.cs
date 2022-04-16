@@ -22,175 +22,227 @@ namespace IngameScript
 {
     partial class Program
     {
-        public enum AirlockStatus
-        {
-            Draining,
-            Filling,
-            NotPressurized,
-            Pressurized
-        }
-
         public class Airlock
         {
-            private const int DoorCountdown = 10;
-            private int countdown;
-            private List<IMyDoor> countdownDoors;
+            public const int DoorCountdown = 4;
+            private Coroutine doorCoroutine;
+            private int barrierCountdown;
+            private int innerCountdown;
+            private int outerCountdown;
 
             public string Id { get; set; }
+            public List<IMyDoor> BarrierDoors { get; } = new List<IMyDoor>();
             public List<IMyDoor> InnerDoors { get; } = new List<IMyDoor>();
             public List<IMyDoor> OuterDoors { get; } = new List<IMyDoor>();
             public List<IMyAirVent> Vents { get; } = new List<IMyAirVent>();
             public List<IMyTextSurface> DisplaySurfaces { get; } = new List<IMyTextSurface>();
-            public AirlockStatus Status { get; private set; }
-            public bool Valid => InnerDoors.Count > 0 && OuterDoors.Count > 0 && Vents.Count > 0;
+            public bool Valid => (BarrierDoors.Count > 0 || (InnerDoors.Count > 0 && OuterDoors.Count > 0)) && Vents.Count > 0;
 
-
-            private bool IsNotPressurized => Vents.First().GetOxygenLevel() < 0.1f;
-            private bool IsPressurized => Vents.First().GetOxygenLevel() > 0.9f;
+            private bool IsEmpty => Vents.First().GetOxygenLevel() < 0.1f;
+            private bool IsFilled => Vents.First().GetOxygenLevel() > 0.9f;
 
             public void Init()
             {
-                if (IsNotPressurized)
+                // start the door watcher
+                Coroutine.Start(DoorWatcher(), UpdateFrequency.Update100);
+            }
+
+            public void RequestOpenBarrer()
+            {
+                if (BarrierDoors.Count == 0) return;
+
+                float min = 1.0f;
+                float max = 0.0f;
+                foreach (IMyAirVent vent in Vents)
                 {
-                    Status = AirlockStatus.NotPressurized;
+                    float level = vent.GetOxygenLevel();
+                    min = Math.Min(min, level);
+                    max = Math.Max(max, level);
                 }
-                else if (IsPressurized)
+
+                if (max - min < 0.1f)
                 {
-                    Status = AirlockStatus.Pressurized;
+                    foreach (IMyDoor door in BarrierDoors)
+                    {
+                        door.OpenDoor();
+                    }
                 }
             }
 
             public void RequestOpenInner()
             {
-                if (Status == AirlockStatus.Pressurized)
+                if (InnerDoors.Count == 0) return;
+
+                if (IsFilled)
                 {
                     // if its safe just open
-                    OpenDoor(InnerDoors);
+                    OpenDoors(InnerDoors);
                 }
                 else
                 {
-                    // otherwise change what we're doing
-                    Status = AirlockStatus.Filling;
+                    // start a coroutine to open the door carefully
+                    StartDoorCoroutine(OpenInnerCoroutine());
                 }
             }
 
             public void RequestOpenOuter()
             {
-                if (Status == AirlockStatus.NotPressurized)
+                if (OuterDoors.Count == 0) return;
+                if (IsEmpty)
                 {
                     // if its safe just open
-                    OpenDoor(OuterDoors);
+                    OpenDoors(OuterDoors);
                 }
                 else
                 {
-                    // otherwise change what we're doing
-                    Status = AirlockStatus.Draining;
+                    // start a coroutine to open the door carefully
+                    StartDoorCoroutine(OpenOuterCoroutine());
                 }
             }
 
             public void Toggle()
             {
-                switch (Status)
+                if (IsEmpty)
                 {
-                    case AirlockStatus.NotPressurized:
-                        Status = AirlockStatus.Filling;
-                        break;
-                    case AirlockStatus.Pressurized:
-                        Status = AirlockStatus.Draining;
-                        break;
+                    RequestOpenInner();
+                }
+                else if (IsFilled)
+                {
+                    RequestOpenOuter();
                 }
             }
 
-            public bool Tick()
+            private void StartDoorCoroutine(IEnumerator<bool> iter)
             {
-                SetEnabled(InnerDoors, IsPressurized);
-                SetEnabled(OuterDoors, IsNotPressurized);
-
-                switch (Status)
+                // cancel the current op if running
+                if (doorCoroutine != null)
                 {
-                    case AirlockStatus.Draining:
-                    case AirlockStatus.Filling:
-                        // make sure both doors are closed before changing pressure
-                        if (Closed(InnerDoors) && Closed(OuterDoors))
-                        {
-                            // one frame of both doors locked to prevent mistakes
-                            SetEnabled(InnerDoors, false);
-                            SetEnabled(OuterDoors, false);
-                            SetDepressurize(Status == AirlockStatus.Draining);
-                        }
-                        else
-                        {
-                            CloseDoor(InnerDoors);
-                            CloseDoor(OuterDoors);
-                        }
-
-                        if (Status == AirlockStatus.Draining)
-                        {
-                            if (IsNotPressurized)
-                            {
-                                Status = AirlockStatus.NotPressurized;
-                                OpenDoor(OuterDoors);
-                            }
-                        }
-                        else
-                        {
-                            if (IsPressurized)
-                            {
-                                Status = AirlockStatus.Pressurized;
-                                OpenDoor(InnerDoors);
-                            }
-                        }
-                        break;
+                    doorCoroutine.Cancel = true;
                 }
 
-                foreach (IMyTextSurface surface in DisplaySurfaces)
-                {
-                    surface.WriteText(Status.ToString());
-                }
-
-                return Status == AirlockStatus.Draining || Status == AirlockStatus.Filling;
+                // make a new one to start
+                doorCoroutine = new Coroutine(iter);
+                Coroutine.Start(doorCoroutine);
             }
 
-            public void Update()
+            private IEnumerator<bool> OpenInnerCoroutine()
+            {
+                return DoorCoroutine(InnerDoors, false, () => IsFilled);
+            }
+
+            private IEnumerator<bool> OpenOuterCoroutine()
+            {
+                return DoorCoroutine(OuterDoors, true, () => IsEmpty);
+            }
+
+            private IEnumerator<bool> DoorCoroutine(IEnumerable<IMyDoor> doorsToOpen, bool depressurize, Func<bool> completed)
             {
 
-                if (countdown > 0)
+                // close the doors and set to pressurize
+                CloseDoors(InnerDoors);
+                CloseDoors(OuterDoors);
+
+                // wait until the doors are all closed
+                while (!Closed(InnerDoors) || !Closed(OuterDoors))
                 {
-                    countdown--;
-                    if (countdown <= 0)
+                    yield return true;
+                }
+
+                // wait a tick
+                yield return true;
+
+                // change pressure
+                SetDepressurize(depressurize);
+                UpdateDisplay(depressurize ? "Depressurizing" : "Pressurizing");
+
+                // clear the watch countdowns
+                innerCountdown = outerCountdown = 0;
+
+                // turn the doors off
+                SetEnabled(InnerDoors, false);
+                SetEnabled(OuterDoors, false);
+
+                // wait until we're pressurized
+                while (!completed())
+                {
+                    yield return true;
+                }
+
+                if (IsFilled)
+                {
+                    UpdateDisplay("Pressurized");
+                }
+                else if (IsEmpty)
+                {
+                    UpdateDisplay("Depressurized");
+                }
+
+                // open the requested doors
+                OpenDoors(doorsToOpen);
+                yield return false;
+            }
+
+            private IEnumerator<bool> DoorWatcher()
+            {
+                while (true)
+                {
+                    CheckCloseDoors(BarrierDoors, ref barrierCountdown);
+                    CheckCloseDoors(InnerDoors, ref innerCountdown);
+                    CheckCloseDoors(OuterDoors, ref outerCountdown);
+                    yield return true;
+                }
+            }
+
+            private void CheckCloseDoors(IEnumerable<IMyDoor> doors, ref int doorCountdown)
+            {
+                if (doorCountdown > 0)
+                {
+                    doorCountdown--;
+                    if (doorCountdown <= 0)
                     {
-                        CloseDoor(countdownDoors);
+                        CloseDoors(doors);
                     }
                 }
+                else if (!Closed(doors))
+                {
+                    doorCountdown = DoorCountdown;
+                }
             }
 
-            private bool Closed(List<IMyDoor> doors)
+            private void UpdateDisplay(string status)
+            {
+                foreach (IMyTextSurface surface in DisplaySurfaces)
+                {
+                    surface.WriteText(status);
+                }
+            }
+
+            private bool Closed(IEnumerable<IMyDoor> doors)
             {
                 return doors.All(d => d.Status == DoorStatus.Closed);
             }
 
-            private void CloseDoor(List<IMyDoor> doors)
+            private void CloseDoors(IEnumerable<IMyDoor> doors)
             {
-                if (countdownDoors == doors)
-                {
-                    countdown = 0;
-                }
-
                 foreach (IMyDoor door in doors)
                 {
-                    door.Enabled = true;
-                    door.CloseDoor();
+                    if (door.Status == DoorStatus.Open || door.Status == DoorStatus.Opening)
+                    {
+                        door.Enabled = true;
+                        door.CloseDoor();
+                    }
                 }
             }
 
-            private void OpenDoor(List<IMyDoor> doors)
+            private void OpenDoors(IEnumerable<IMyDoor> doors)
             {
-                countdown = DoorCountdown;
-                countdownDoors = doors;
                 foreach (IMyDoor door in doors)
                 {
-                    door.Enabled = true;
-                    door.OpenDoor();
+                    if (door.Status == DoorStatus.Closed || door.Status == DoorStatus.Closing)
+                    {
+                        door.Enabled = true;
+                        door.OpenDoor();
+                    }
                 }
             }
 
@@ -202,9 +254,9 @@ namespace IngameScript
                 }
             }
 
-            private void SetEnabled<T>(List<T> blocks, bool enabled) where T: IMyFunctionalBlock
+            private void SetEnabled(IEnumerable<IMyFunctionalBlock> blocks, bool enabled)
             {
-                foreach (T block in blocks)
+                foreach (IMyFunctionalBlock block in blocks)
                 {
                     block.Enabled = enabled;
                 }

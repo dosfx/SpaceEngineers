@@ -22,108 +22,44 @@ namespace IngameScript
 {
     partial class Program : MyGridProgram
     {
-        private Dictionary<string, Airlock> airlocks;
-        private Dictionary<string, Bulkhead> bulkheads;
-        private IEnumerator<bool> startup;
+        private readonly Dictionary<string, Airlock> airlocks;
         private readonly MyCommandLine commandLine;
-        private readonly HashSet<string> ticking;
 
         public Program()
         {
-            startup = Startup();
+            airlocks = new Dictionary<string, Airlock>();
             commandLine = new MyCommandLine();
-            ticking = new HashSet<string>();
-            Runtime.UpdateFrequency = UpdateFrequency.Once;
+            Coroutine.Runtime = Runtime;
+            Coroutine.Start(Startup());
         }
 
         public void Main(string argument, UpdateType updateSource)
         {
-            if (updateSource.HasFlag(UpdateType.Once) && startup != null)
-            {
-                if (startup.MoveNext())
-                {
-                    Runtime.UpdateFrequency = UpdateFrequency.Once;
-                }
-                else
-                {
-                    Runtime.UpdateFrequency = UpdateFrequency.Update100;
-                    startup.Dispose();
-                    startup = null;
-                }
-
-                return;
-            }
-
             if ((updateSource.HasFlag(UpdateType.Terminal) || updateSource.HasFlag(UpdateType.Trigger))
-                && startup == null && commandLine.TryParse(argument) && commandLine.ArgumentCount >= 2)
+                && commandLine.TryParse(argument) && commandLine.ArgumentCount >= 2)
             {
-                if (commandLine.Argument(0) == "OpenBulkhead")
+                Airlock airlock;
+                if (airlocks.TryGetValue(commandLine.Argument(1), out airlock))
                 {
-                    Bulkhead bulkhead;
-                    if (bulkheads.TryGetValue(commandLine.Argument(1), out bulkhead))
+                    switch (commandLine.Argument(0))
                     {
-                        bulkhead.RequestOpenDoors();
-                    }
-                }
-                else
-                {
-                    Airlock airlock;
-                    if (airlocks.TryGetValue(commandLine.Argument(1), out airlock))
-                    {
-                        switch (commandLine.Argument(0))
-                        {
-                            case "OpenInner":
-                                airlock.RequestOpenInner();
-                                ticking.Add(airlock.Id);
-                                Runtime.UpdateFrequency |= UpdateFrequency.Update10;
-                                break;
-                            case "OpenOuter":
-                                airlock.RequestOpenOuter();
-                                ticking.Add(airlock.Id);
-                                Runtime.UpdateFrequency |= UpdateFrequency.Update10;
-                                break;
-                            case "Toggle":
-                                airlock.Toggle();
-                                ticking.Add(airlock.Id);
-                                Runtime.UpdateFrequency |= UpdateFrequency.Update10;
-                                break;
-                        }
+                        case "OpenBarrier":
+                            airlock.RequestOpenBarrer();
+                            break;
+                        case "OpenInner":
+                            airlock.RequestOpenInner();
+                            break;
+                        case "OpenOuter":
+                            airlock.RequestOpenOuter();
+                            break;
+                        case "Toggle":
+                            airlock.Toggle();
+                            break;
                     }
                 }
             }
 
-            if (updateSource.HasFlag(UpdateType.Update10))
-            {
-                foreach (string id in ticking.ToArray())
-                {
-                    if (!airlocks[id].Tick())
-                    {
-                        ticking.Remove(id);
-                    }
-                }
-
-                if (ticking.Count > 0)
-                {
-                    Runtime.UpdateFrequency |= UpdateFrequency.Update10;
-                }
-                else
-                {
-                    Runtime.UpdateFrequency &= ~UpdateFrequency.Update10;
-                }
-            }
-
-            if (updateSource.HasFlag(UpdateType.Update100))
-            {
-                foreach (Airlock airlock in airlocks.Values)
-                {
-                    airlock.Update();
-                }
-
-                foreach (Bulkhead bulkhead in bulkheads.Values)
-                {
-                    bulkhead.Update();
-                }
-            }
+            Coroutine.Update(updateSource);
         }
     }
 }

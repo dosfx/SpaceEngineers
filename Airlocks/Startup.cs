@@ -30,12 +30,9 @@ namespace IngameScript
             yield return true;
 
             // getting into the real work
-            //int total = doors.Count + vents.Count;
             int total = blocks.Count;
             int progress = 0;
             MyIni ini = new MyIni();
-            airlocks = new Dictionary<string, Airlock>();
-            bulkheads = new Dictionary<string, Bulkhead>();
             foreach (IMyTerminalBlock block in blocks)
             {
                 // every block we care about should at least have Airlock > Id
@@ -64,6 +61,10 @@ namespace IngameScript
                             else if (type == "Outer")
                             {
                                 airlock.OuterDoors.Add(door);
+                            }
+                            else if (type == "Balance")
+                            {
+                                airlock.BarrierDoors.Add(door);
                             }
                             else
                             {
@@ -97,28 +98,6 @@ namespace IngameScript
                             }
                         }
                     }
-
-                    if (ini.ContainsSection("Bulkhead") && ini.Get("Bulkhead", "Id").TryGetString(out id))
-                    {
-                        Bulkhead bulkhead;
-                        if (!bulkheads.TryGetValue(id, out bulkhead))
-                        {
-                            bulkhead = new Bulkhead() { Id = id };
-                            bulkheads.Add(id, bulkhead);
-                        }
-
-                        IMyDoor door = block as IMyDoor;
-                        if (door != null)
-                        {
-                            bulkhead.Doors.Add(door);
-                        }
-
-                        IMyAirVent vent = block as IMyAirVent;
-                        if (vent != null)
-                        {
-                            bulkhead.Vents.Add(vent);
-                        }
-                    }
                 }
 
                 // yield for the next round
@@ -139,20 +118,6 @@ namespace IngameScript
                 {
                     Echo($"{id} Invalid");
                     airlocks.Remove(id);
-                }
-            }
-
-            // go through and init the real ones and remove the bad ones
-            foreach (string id in bulkheads.Keys.ToArray())
-            {
-                if (bulkheads[id].Valid)
-                {
-                    Echo($"{id} Valid");
-                }
-                else
-                {
-                    Echo($"{id} Invalid");
-                    bulkheads.Remove(id);
                 }
             }
 
