@@ -171,11 +171,11 @@ namespace IngameScript
                     yield return true;
                 }
 
-                // wait a tick
-                yield return true;
-
                 // change pressure
                 SetDepressurize(depressurize);
+
+                // doors have graphical glitches if you disable them too soon
+                for (int i = 0; i < 8; i++) yield return true;
 
                 // clear the watch countdowns
                 innerCountdown = outerCountdown = 0;
